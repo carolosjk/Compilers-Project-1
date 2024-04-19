@@ -1,0 +1,116 @@
+/**
+ *  Package and Import Specifications
+ */
+import java_cup.runtime.*;
+
+/**
+ *  Usercode Components
+ */
+parser code {:
+    // Connect this parser to a scanner!
+    Scanner s;
+    Parser(Scanner s){ this.s=s; }
+
+    public String reverse_string(String s){
+        return new StringBuilder(s).reverse().toString();
+    }
+
+    public void print(String s){
+        System.out.println(s);
+    }
+:}
+
+/* define how to connect to the scanner! */
+scan with {: return s.next_token(); :};
+
+/**
+ *  Symbol Lists
+ */
+
+/* Terminals (tokens returned by the scanner). */
+terminal            IF, ELSE, REVERSE, PREFIX, PLUS, LPAREN, RPAREN, RBRACE, LBRACE, PARENBRACE, COMMA;
+terminal String     STRING_LITERAL, IDENTIFIER;        // our scanner has only strings..
+
+/*  Non terminals */
+non terminal        funcDec,function, declParameters, prog, main, mainTerm,  conditional, conditional2, condition, condition2, stringOrId, exprIdentifier, string, expr, expr2;
+non terminal        functionCall, functionCall2, functionArgs, functionArgs2;
+
+/**
+ *  Precedence Declarations
+ */
+precedence nonassoc IF;
+precedence left PLUS;
+precedence left REVERSE;
+
+
+start with prog;
+
+/**
+ *  The Grammar Rules
+ */
+
+ prog               ::= funcDec:f main:m {: print("public class Main {\n\n");
+                                            print("public static String reverse_string(String s){\n\treturn new StringBuilder(s).reverse().toString();\n}\n");
+                                            print(m+"\n\n"+f+"}");  :};
+
+ funcDec            ::= funcDec:ff function:f        {: RESULT = ff+"\n"+f;  :}
+                    |                                {: RESULT = "";  :};
+
+ function           ::= IDENTIFIER:i LPAREN declParameters:p PARENBRACE expr:e RBRACE {: RESULT = "public static String "+i+"("+p+") {\n\treturn "+e+";\n}\n";  :};
+
+ main               ::= mainTerm:m  {: RESULT = "public static void main(String[] args) {\n"+m+"\n}";  :};
+
+ mainTerm           ::= expr2:e mainTerm:m        {: RESULT = "\tSystem.out.println("+e+");\n"+m;  :}
+                    |                             {: RESULT = "";  :};
+
+ functionCall       ::= IDENTIFIER:i LPAREN functionArgs:a RPAREN  {: RESULT = i+"("+a+")";  :};
+
+ functionCall2      ::= IDENTIFIER:i LPAREN functionArgs2:a RPAREN {: RESULT = i+"("+a+")";  :};
+
+ functionArgs       ::= expr:e                          {: RESULT = e;  :}
+                    |   expr:e COMMA functionArgs:a     {: RESULT = e+", "+a;  :}
+                    |                                   {: RESULT = "";  :};
+
+ functionArgs2      ::= expr2:e                         {: RESULT = e;  :}
+                    |   expr2:e COMMA functionArgs2:a   {: RESULT = e+", "+a;  :}
+                    |                                   {: RESULT = "";  :};
+
+
+ expr               ::= stringOrId:s                {: RESULT = ""+s;  :}
+                    |   expr:e1 PLUS expr:e2        {: RESULT = e1+" + "+e2;  :}
+                    |   functionCall:f              {: RESULT = f;  :}
+                    |   REVERSE expr:e              {: RESULT = "reverse_string("+e+")";  :}
+                    |   conditional:c               {: RESULT = c;  :};
+
+ expr2              ::= string:s                    {: RESULT = ""+s;  :}       // Conflict with identifiers, so it's probably safe to assume that there are no identifiers on their own in main()
+                    |   expr2:e1 PLUS expr2:e2      {: RESULT = e1+" + "+e2;  :}
+                    |   functionCall2:f             {: RESULT = f;  :}
+                    |   REVERSE expr:e              {: RESULT = "reverse_string("+e+")";  :}
+                    |   conditional2:c              {: RESULT = c;  :};
+
+//  conditional        ::= IF LPAREN condition:c RPAREN expr:e1 ELSE expr:e2   {: RESULT = "if ("+c+")\n\t"+e1+"\nelse\n\t"+e2; :};
+ conditional        ::= IF LPAREN condition:c RPAREN expr:e1 ELSE expr:e2       {: RESULT = "("+c+" ? "+e1+" : "+e2+")"; :};
+
+ conditional2       ::= IF LPAREN condition2:c RPAREN expr2:e1 ELSE expr2:e2    {: RESULT = "("+c+" ? "+e1+" : "+e2+")"; :};
+
+ condition          ::= expr:e1 PREFIX expr:e2      {: RESULT = e2+".startsWith("+e1+")";  :};
+
+ condition2         ::= expr2:e1 PREFIX expr2:e2    {: RESULT = e2+".startsWith("+e1+")";  :};
+
+ stringOrId         ::= string:s            {: RESULT = s;  :}
+                    |   exprIdentifier:s    {: RESULT = s;  :};
+
+
+//  declParameters     ::= IDENTIFIER:i COMMA declParameters:d     {: RESULT = i+", "+d;  :}
+                    // |   IDENTIFIER:i                            {: RESULT = i;  :}
+ declParameters     ::= IDENTIFIER:i                            {: RESULT = "String "+i;  :}
+                    |   IDENTIFIER:i COMMA declParameters:d     {: RESULT = "String "+i+", "+d;  :}
+                    |                                           {: RESULT = "";  :};
+
+
+//  exprIdentifier     ::= REVERSE exprIdentifier:i    {: RESULT = "reverse_string("+i+")";  :}
+ exprIdentifier     ::= IDENTIFIER:i           {: RESULT = i;  :};
+
+//  string             ::= REVERSE string:s       {: RESULT = "reverse_string("+s+")";  :}
+ string             ::= STRING_LITERAL:s       {: RESULT = '"'+s+'"';  :};
+
